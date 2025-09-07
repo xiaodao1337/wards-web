@@ -1,6 +1,8 @@
 {
-  "date": "2025-09-07",
-  "total_users": 0,
-  "timestamp": "2025-09-07T00:00:00.000000",
-  "api_url": "http://51.79.56.175:5231/getonlines"
+  "metadata": {
+    "last_updated": "",
+    "data_source": "http://51.79.56.175:5231/getonlines",
+    "update_frequency": "daily"
+  },
+  "daily_data": {}
 }
