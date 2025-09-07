@@ -3,7 +3,7 @@ name: Fetch Daily Active Users Data
 on:
   schedule:
     # 每天 UTC 时间 00:00（北京时间 08:00）执行
-    - cron: '0 0 * * *'
+    - cron: '0 * * * *'
   # 允许手动触发工作流
   workflow_dispatch:
 
@@ -37,6 +37,8 @@ jobs:
           from datetime import datetime
 
           api_url = os.environ.get('API_URL')
+          history_file = 'dau-history.json'
+          
           try:
               # 获取数据
               response = requests.get(api_url, timeout=10)
@@ -48,19 +50,43 @@ jobs:
               
               # 准备要保存的数据
               current_date = datetime.now().strftime("%Y-%m-%d")
-              result = {
+              new_entry = {
                   "date": current_date,
                   "total_users": total_users,
-                  "timestamp": datetime.now().isoformat(),
-                  "api_url": api_url
+                  "timestamp": datetime.now().isoformat()
               }
               
-              # 输出结果供后续步骤使用
-              print(f"Total users: {total_users}")
+              # 读取现有的历史数据文件
+              if os.path.exists(history_file):
+                  with open(history_file, 'r') as f:
+                      history_data = json.load(f)
+              else:
+                  # 如果文件不存在，初始化数据结构
+                  history_data = {
+                      "data_source": api_url,
+                      "update_frequency": "daily",
+                      "historical_data": []
+                  }
+              
+              # 检查今天是否已经有数据，如果有则更新，否则添加
+              found = False
+              for entry in history_data['historical_data']:
+                  if entry['date'] == current_date:
+                      entry.update(new_entry)
+                      found = True
+                      break
+              
+              if not found:
+                  history_data['historical_data'].append(new_entry)
+              
+              # 更新最后更新时间
+              history_data['last_updated'] = datetime.now().isoformat()
               
               # 将结果写入文件
-              with open('dau-data.json', 'w') as f:
-                  json.dump(result, f, indent=2)
+              with open(history_file, 'w') as f:
+                  json.dump(history_data, f, indent=2)
+                  
+              print(f"Successfully updated data for {current_date}: {total_users} users")
                   
           except Exception as e:
               print(f"Error fetching data: {e}")
@@ -77,16 +103,16 @@ jobs:
           git config --local user.name "GitHub Action"
           
           # 检查文件是否有变化
-          git add dau-data.json
+          git add dau-history.json
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Update DAU data [$(date +'%Y-%m-%d %H:%M')]"
+            git commit -m "Update DAU history data [$(date +'%Y-%m-%d %H:%M')]"
             git push
           fi
 
       - name: Upload data as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dau-data
-          path: dau-data.json
+          name: dau-history
+          path: dau-history.json
