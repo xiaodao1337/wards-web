@@ -1,8 +1,6 @@
 {
-  "metadata": {
-    "last_updated": "",
-    "data_source": "http://51.79.56.175:5231/getonlines",
-    "update_frequency": "daily"
-  },
-  "daily_data": {}
+  "data_source": "http://51.79.56.175:5231/getonlines",
+  "update_frequency": "daily",
+  "last_updated": "",
+  "historical_data": []
 }
