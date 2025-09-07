@@ -1,4 +1,4 @@
-name: Fetch Daily Active Users Data
+name: Update DAU Data
 
 on:
   schedule:
@@ -6,113 +6,117 @@ on:
     - cron: '0 * * * *'
   # 允许手动触发工作流
   workflow_dispatch:
+    inputs:
+      date:
+        description: '特定日期 (YYYY-MM-DD)，默认为今天'
+        required: false
+        default: ''
 
 jobs:
-  fetch-dau-data:
+  update-dau:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # 需要获取完整的提交历史，以便能够推送更改
+        fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
 
-      - name: Install dependencies
-        run: pip install requests
+    - name: Install dependencies
+      run: pip install requests
 
-      - name: Fetch and process DAU data
-        env:
-          API_URL: "http://51.79.56.175:5231/getonlines"
-        run: |
-          # 创建Python脚本获取并处理数据
-          cat > fetch_data.py << 'EOF'
-          import requests
-          import json
-          import os
-          from datetime import datetime
+    - name: Fetch DAU data from API
+      env:
+        API_URL: "http://51.79.56.175:5231/getonlines"
+      run: |
+        # 创建Python脚本来获取和处理数据
+        cat > fetch_dau.py << 'EOF'
+        import requests
+        import json
+        import os
+        from datetime import datetime
+        
+        # 获取API URL
+        api_url = os.environ.get('API_URL')
+        history_file = 'dau-history.json'
+        
+        try:
+            # 获取数据
+            print(f"Fetching data from {api_url}...")
+            response = requests.get(api_url, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            
+            # 提取total字段
+            if 'total' in data:
+                total_users = data['total']
+                print(f"Total users: {total_users}")
+                
+                # 准备要保存的数据
+                current_date = datetime.now().strftime("%Y-%m-%d")
+                new_entry = {
+                    "date": current_date,
+                    "total_users": total_users,
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+                # 读取现有的历史数据文件
+                if os.path.exists(history_file):
+                    with open(history_file, 'r') as f:
+                        history_data = json.load(f)
+                else:
+                    # 如果文件不存在，初始化数据结构
+                    history_data = {
+                        "data_source": api_url,
+                        "update_frequency": "daily",
+                        "historical_data": []
+                    }
+                
+                # 确保historical_data字段存在
+                if "historical_data" not in history_data:
+                    history_data["historical_data"] = []
+                
+                # 检查今天是否已经有数据，如果有则更新，否则添加
+                found = False
+                for entry in history_data["historical_data"]:
+                    if entry["date"] == current_date:
+                        entry.update(new_entry)
+                        found = True
+                        break
+                
+                if not found:
+                    history_data["historical_data"].append(new_entry)
+                
+                # 更新最后更新时间
+                history_data["last_updated"] = datetime.now().isoformat()
+                
+                # 将结果写入文件
+                with open(history_file, 'w') as f:
+                    json.dump(history_data, f, indent=2, ensure_ascii=False)
+                
+                print(f"Successfully updated data for {current_date}: {total_users} users")
+            else:
+                print("Error: 'total' field not found in API response")
+                exit(1)
+                
+        except Exception as e:
+            print(f"Error fetching data: {e}")
+            exit(1)
+        EOF
+        
+        # 执行Python脚本
+        python fetch_dau.py
 
-          api_url = os.environ.get('API_URL')
-          history_file = 'dau-history.json'
-          
-          try:
-              # 获取数据
-              response = requests.get(api_url, timeout=10)
-              response.raise_for_status()
-              data = response.json()
-              
-              # 提取total字段
-              total_users = data.get('total', 'N/A')
-              
-              # 准备要保存的数据
-              current_date = datetime.now().strftime("%Y-%m-%d")
-              new_entry = {
-                  "date": current_date,
-                  "total_users": total_users,
-                  "timestamp": datetime.now().isoformat()
-              }
-              
-              # 读取现有的历史数据文件
-              if os.path.exists(history_file):
-                  with open(history_file, 'r') as f:
-                      history_data = json.load(f)
-              else:
-                  # 如果文件不存在，初始化数据结构
-                  history_data = {
-                      "data_source": api_url,
-                      "update_frequency": "daily",
-                      "historical_data": []
-                  }
-              
-              # 检查今天是否已经有数据，如果有则更新，否则添加
-              found = False
-              for entry in history_data['historical_data']:
-                  if entry['date'] == current_date:
-                      entry.update(new_entry)
-                      found = True
-                      break
-              
-              if not found:
-                  history_data['historical_data'].append(new_entry)
-              
-              # 更新最后更新时间
-              history_data['last_updated'] = datetime.now().isoformat()
-              
-              # 将结果写入文件
-              with open(history_file, 'w') as f:
-                  json.dump(history_data, f, indent=2)
-                  
-              print(f"Successfully updated data for {current_date}: {total_users} users")
-                  
-          except Exception as e:
-              print(f"Error fetching data: {e}")
-              exit(1)
-          EOF
-
-          # 执行Python脚本
-          python fetch_data.py
-
-      - name: Commit and push if data changed
-        run: |
-          # 配置Git用户信息
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # 检查文件是否有变化
-          git add dau-history.json
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update DAU history data [$(date +'%Y-%m-%d %H:%M')]"
-            git push
-          fi
-
-      - name: Upload data as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: dau-history
-          path: dau-history.json
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add dau-history.json
+        git diff --staged --quiet || git commit -m "Update DAU data for $(date +'%Y-%m-%d')"
+        git push
