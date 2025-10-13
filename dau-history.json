@@ -1,7 +1,7 @@
 {
   "data_source": "http://51.79.56.175:5231/getonlines",
   "update_frequency": "daily",
-  "last_updated": "2025-10-12T01:17:02.021887",
+  "last_updated": "2025-10-13T01:18:51.407538",
   "historical_data": [
     {
       "date": "2025-09-07",
@@ -177,6 +177,11 @@
       "date": "2025-10-12",
       "total_users": 1047,
       "timestamp": "2025-10-12T01:17:02.021762"
+    },
+    {
+      "date": "2025-10-13",
+      "total_users": 1107,
+      "timestamp": "2025-10-13T01:18:51.407403"
     }
   ]
 }
