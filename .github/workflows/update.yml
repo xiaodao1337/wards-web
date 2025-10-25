@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Fetch API and save
         run: |
-          curl -sSf http://51.79.56.175:5231/getonlines > data.json
+          curl -sSf http://103.91.208.25:5231/getonlines > data.json
       - name: Commit if changed
         run: |
           git config user.name  "github-actions[bot]"
