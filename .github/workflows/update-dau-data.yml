@@ -27,7 +27,7 @@ jobs:
 
     - name: Fetch DAU data from API
       env:
-        API_URL: "http://51.79.56.175:5231/getonlines"
+        API_URL: "http://103.91.208.25:5231/getonlines"
       run: |
         # 创建Python脚本来获取和处理数据
         cat > fetch_dau.py << 'EOF'
